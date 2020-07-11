@@ -1,0 +1,6 @@
+
+[workspace]
+members = [
+    "rog_fan_curve",
+    "rog_fan_curve_cli",
+]

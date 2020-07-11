@@ -1,0 +1,14 @@
+[package]
+name = "rog_fan_curve_cli"
+version = "0.1.0"
+authors = ["ryan <yarnnd@gmail.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Yarn/rog_fan_curve"
+description = "A barebones cli interface for rog_fan_curve"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rog-fan-curve = { version = "0.1.0", path = "../rog_fan_curve" }
+structopt = "0.3"
