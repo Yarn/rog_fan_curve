@@ -11,6 +11,10 @@ use rog_fan_curve::{
 struct RogFanCurveCli {
     #[structopt(long = "board")]
     board: Option<String>,
+    #[structopt(long)]
+    cpu: bool,
+    #[structopt(long)]
+    gpu: bool,
     curve: Option<String>,
 }
 
@@ -19,14 +23,14 @@ fn main() {
     
     let mut curve = Curve::new();
     
-    curve.set_point(0, 0x1e, 0x00);
-    curve.set_point(1, 0x2d, 0x01);
-    curve.set_point(2, 0x32, 0x04);
-    curve.set_point(3, 0x3c, 0x04);
-    curve.set_point(4, 0x46, 0x13);
-    curve.set_point(5, 0x50, 0x40);
-    curve.set_point(6, 0x5a, 0x64);
-    curve.set_point(7, 0x64, 0x64);
+    curve.set_point(0,  30,   0);
+    curve.set_point(1,  40,   1);
+    curve.set_point(2,  50,   4);
+    curve.set_point(3,  60,   4);
+    curve.set_point(4,  70,  13);
+    curve.set_point(5,  80,  40);
+    curve.set_point(6,  90, 100);
+    curve.set_point(7, 100, 100);
     
     if let Some(curve_str) = args.curve {
         for (i, point_str) in curve_str.split(",").enumerate() {
@@ -45,6 +49,17 @@ fn main() {
     
     let board = board.expect("unknown board");
     
-    curve.apply(board, Fan::Cpu).unwrap();
-    curve.apply(board, Fan::Gpu).unwrap();
+    let mut cpu = args.cpu;
+    let mut gpu = args.gpu;
+    if !cpu && !gpu {
+        cpu = true;
+        gpu = true;
+    }
+    
+    if cpu {
+        curve.apply(board, Fan::Cpu).unwrap();
+    }
+    if gpu {
+        curve.apply(board, Fan::Gpu).unwrap();
+    }
 }
