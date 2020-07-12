@@ -15,6 +15,8 @@ struct RogFanCurveCli {
     cpu: bool,
     #[structopt(long)]
     gpu: bool,
+    #[structopt(long)]
+    no_warn: bool,
     curve: Option<String>,
 }
 
@@ -32,13 +34,8 @@ fn main() {
     curve.set_point(6,  90, 100);
     curve.set_point(7, 100, 100);
     
-    if let Some(curve_str) = args.curve {
-        for (i, point_str) in curve_str.split(",").enumerate() {
-            let mut parts = point_str.split(":");
-            let temp: u8 = parts.next().unwrap().parse().unwrap();
-            let speed: u8 = parts.next().unwrap().parse().unwrap();
-            curve.set_point(i as u8, temp, speed);
-        }
+    if let Some(config_str) = args.curve {
+        curve = Curve::from_config_str(&config_str).unwrap();
     }
     
     let mut board = args.board.as_ref().map(|name| Board::from_name(name).expect("unknown board"));
@@ -56,10 +53,24 @@ fn main() {
         gpu = true;
     }
     
+    let mut warning_given = false;
+    if args.no_warn {
+        warning_given = true;
+    }
+    
     if cpu {
+        if !warning_given && curve.check_safety(Fan::Cpu).is_err() {
+            warning_given = true;
+            eprintln!("Warning: This fan curve wouldn't be allowed in armoury crate and may be unsafe.");
+        }
         curve.apply(board, Fan::Cpu).unwrap();
     }
     if gpu {
+        if !warning_given && curve.check_safety(Fan::Gpu).is_err() {
+            #[allow(unused_assignments)]
+            { warning_given = true; }
+            eprintln!("Warning: This fan curve wouldn't be allowed in armoury crate and may be unsafe.");
+        }
         curve.apply(board, Fan::Gpu).unwrap();
     }
 }
