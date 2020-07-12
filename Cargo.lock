@@ -116,14 +116,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "rog-fan-curve"
+name = "rog_fan_curve"
 version = "0.1.0"
 
 [[package]]
-name = "rog-fan-curve-cli"
+name = "rog_fan_curve_cli"
 version = "0.1.0"
 dependencies = [
- "rog-fan-curve",
+ "rog_fan_curve",
  "structopt",
 ]
 
