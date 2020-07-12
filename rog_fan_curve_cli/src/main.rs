@@ -29,8 +29,8 @@ fn main() {
     curve.set_point(1,  40,   1);
     curve.set_point(2,  50,   4);
     curve.set_point(3,  60,   4);
-    curve.set_point(4,  70,  13);
-    curve.set_point(5,  80,  40);
+    curve.set_point(4,  70,  40);
+    curve.set_point(5,  80,  60);
     curve.set_point(6,  90, 100);
     curve.set_point(7, 100, 100);
     
