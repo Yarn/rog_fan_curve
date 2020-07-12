@@ -1,5 +1,7 @@
 //! The [acpi_call](https://github.com/mkottman/acpi_call) kernel module is needed for this crate to interacti with acpi.
 //!
+//! # Example
+//!
 //! ```no_run
 //! # use rog_fan_curve::{
 //! #     Curve,
@@ -10,14 +12,14 @@
 //! # fn foo() -> Result<(), CurveError> {
 //! let mut curve = Curve::new();
 //! 
-//! curve.set_point(0, 0x1e, 0x00);
-//! curve.set_point(1, 0x2d, 0x01);
-//! curve.set_point(2, 0x32, 0x04);
-//! curve.set_point(3, 0x3c, 0x04);
-//! curve.set_point(4, 0x46, 0x13);
-//! curve.set_point(5, 0x50, 0x40);
-//! curve.set_point(6, 0x5a, 0x64);
-//! curve.set_point(7, 0x64, 0x64);
+//! curve.set_point(0,  30,   0);
+//! curve.set_point(1,  40,   1);
+//! curve.set_point(2,  50,   4);
+//! curve.set_point(3,  60,   4);
+//! curve.set_point(4,  70,  13);
+//! curve.set_point(5,  80,  40);
+//! curve.set_point(6,  90, 100);
+//! curve.set_point(7, 100, 100);
 //! 
 //! let board = Board::from_name("GA401IV").unwrap();
 //! 
@@ -26,6 +28,33 @@
 //! 
 //! # Ok(())
 //! # }
+//! ```
+//!
+//! # Fan speeds and temperatures
+//!
+//! Temperatures are in degrees celcius.
+//!
+//! Fan speeds are roughly a percentage fan speed. The scale is non linear and values
+//! over 100 seem to result in slightly higher fan speeds. A value of 0 will turn the fan off.
+//!
+//! A temperature, speed pair indicates fan speed over a certain temerature,
+//! e.g. 40c:10% means the fan will run at 10% speed when the temperature is over 40C.
+//!
+//! # Config string format
+//!
+//! Config strings follow the format
+//! ```text
+//! <t>c:<s>%,<t>c:<s>%,<t>c:<s>%,<t>c:<s>%,<t>c:<s>%,<t>c:<s>%,<t>c:<s>%,<t>c:<s>%
+//! ```
+//! where t is temperature and s is fan speed.
+//!
+//! Curves must have exactly 8 pairs. This format should match the one used by
+//! [atrofac](https://github.com/cronosun/atrofac).
+//!
+//! #### Example
+//!
+//! ```text
+//! 30c:0%,40c:5%,50c:10%,60c:20%,70c:35%,80c:55%,90c:65%,100c:65%`
 //! ```
 
 use std::io::prelude::*;
@@ -42,6 +71,12 @@ impl From<std::io::Error> for CurveError {
     fn from(err: std::io::Error) -> Self {
         Self::Io(err)
     }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum UnsafeCurveError {
+    TempOutOfRange(u8),
+    SpeedTooLow(u8),
 }
 
 #[derive(Debug)]
@@ -61,13 +96,126 @@ impl Curve {
         }
     }
     
+    /// Create a `Curve` from a config string
+    ///
+    /// See the crate level documentation for information about the config string format.
+    ///
+    /// Err results will contain a human readable string describing why the config string isn't valid.
+    pub fn from_config_str(config_str: &str) -> Result<Self, String> {
+        let config_str = config_str.trim().trim_end_matches(",");
+        let pairs = config_str.split(",");
+        
+        let mut curve = Curve::new();
+        let mut pair_i = 0;
+        for pair in pairs {
+            if pair_i >= 8 {
+                return Err("Too many pairs.".into())
+            }
+            
+            let pair_str = pair.trim();
+            let mut pair = pair_str.split(":");
+            let temp = pair.next()
+                .ok_or_else(|| format!("Invalid format: {}", pair_str))?;
+            let speed = pair.next()
+                .ok_or_else(|| format!("Invalid format: {}", pair_str))?;
+            
+            // let temp = temp.strip_suffix("c").ok_or_else(|| "Tempruature must have a c".into())?;
+            if !temp.ends_with("c") {
+                return Err("Tempruature must have a c".into())
+            }
+            let temp = &temp[..temp.len()-1];
+            // let speed = speed.strip_suffix("%").ok_or_else(|| "Speed must have a %".into())?;
+            if !speed.ends_with("%") {
+                return Err("Speed must have a %".into())
+            }
+            let speed = &speed[..speed.len()-1];
+            
+            let temp = temp.parse().map_err(|_| format!("Invalid number: {}", temp))?;
+            let speed = speed.parse().map_err(|_| format!("Invalid number: {}", speed))?;
+            
+            curve.set_point(pair_i, temp, speed);
+            
+            pair_i += 1;
+        }
+        
+        if pair_i < 7 {
+            return Err("Too few pairs.".into())
+        }
+        
+        Ok(curve)
+    }
+    
+    /// Create a config string for a `Curve`
+    ///
+    /// See the crate level documentation for information about the config string format.
+    pub fn as_config_str(&self) -> String {
+        let mut out = String::new();
+        
+        for i in 0..8 {
+            let temp = self.curve[i];
+            let speed = self.curve[i+8];
+            out.push_str(&format!("{}c:{}%,", temp, speed));
+        }
+        out.pop();
+        
+        out
+    }
+    
+    /// Checks if the curve is "safe"
+    ///
+    /// This checks if the curve falls within some arbitrary limitations.
+    /// The limitations should match the ones used by [atrofac](https://github.com/cronosun/atrofac/blob/master/ADVANCED.md#limits)
+    /// and armoury crate.
+    pub fn check_safety(&self, fan: Fan) -> Result<(), UnsafeCurveError> {
+        for i in 0..8 {
+            let temp = self.curve[i];
+            let speed = self.curve[i+8];
+            
+            let i = i as u8;
+            
+            let min_temp = (i * 10) + 30;
+            let max_temp = (i * 10) + 39;
+            
+            let min_speed = match i {
+                0 | 1 | 2 | 3 => 0,
+                4 => match fan {
+                    Fan::Cpu => 31,
+                    Fan::Gpu => 34,
+                },
+                5 => match fan {
+                    Fan::Cpu => 49,
+                    Fan::Gpu => 51,
+                },
+                6 | 7 => match fan {
+                    Fan::Cpu => 56,
+                    Fan::Gpu => 61,
+                },
+                _ => unreachable!("Invalid fan index"),
+            };
+            
+            if temp < min_temp || temp > max_temp {
+                return Err(UnsafeCurveError::TempOutOfRange(i))
+            }
+            
+            if speed < min_speed {
+                return Err(UnsafeCurveError::SpeedTooLow(i))
+            }
+        }
+        
+        Ok(())
+    }
+    
     /// Sets a point on the fan curve
     ///
     /// # Arguments
     ///
     /// * `n` - The point on the fan curve to change, must be between 0 and 7 inclusive
     /// * `temp` - Degrees celcius
-    /// * `speed` -> Percent? fan speed
+    /// * `speed` -> Fan speed (see crate level documentation)
+    ///
+    /// # Panics
+    ///
+    /// Panics if n isn't in [0..=7]
     pub fn set_point(&mut self, n: u8, temp: u8, speed: u8) {
         assert!(n <= 7); // must be >= 0 due to type
         let n = n as usize;
@@ -77,7 +225,7 @@ impl Curve {
     
     /// Applies the fan curve via acpi_call
     pub fn apply(&self, board: Board, fan: Fan) -> Result<(), CurveError> {
-        assert_eq!(board, Board::Ga401iv);
+        assert_eq!(board, Board::Ga401);
         let fan_addr = fan.address().ok_or(CurveError::InvalidFan)?;
         let command = make_command(self, fan_addr);
         // dbg!(&command);
@@ -87,7 +235,7 @@ impl Curve {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Board {
-    Ga401iv,
+    Ga401,
 }
 
 impl Board {
@@ -99,14 +247,14 @@ impl Board {
     
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
-            "GA401IV" => Some(Board::Ga401iv),
+            "GA401IV" => Some(Board::Ga401),
             _ => None,
         }
     }
 }
 
 /// A fan, some boards may not have all fans.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Fan {
     Cpu,
     Gpu,
@@ -206,5 +354,44 @@ mod tests {
              1,  3,  5,  7,
              9, 11, 13, 15,
         ]);
+    }
+    
+    #[test]
+    fn test_parse() {
+        let config_str = "30c:1%,49c:2%,59c:3%,69c:4%,79c:31%,89c:49%,99c:56%,109c:58%";
+        
+        let curve = Curve::from_config_str(config_str).unwrap();
+        
+        assert_eq!(&curve.curve, &[
+            30, 49, 59, 69,
+            79, 89, 99, 109,
+            1, 2, 3, 4,
+            31, 49, 56, 58,
+        ]);
+    }
+    
+    #[test]
+    fn as_config_str() {
+        let config_str = "30c:1%,49c:2%,59c:3%,69c:4%,79c:31%,89c:49%,99c:56%,109c:58%";
+        let curve = Curve::from_config_str(config_str).unwrap();
+        
+        let out_config_str = curve.as_config_str();
+        
+        assert_eq!(&out_config_str, "30c:1%,49c:2%,59c:3%,69c:4%,79c:31%,89c:49%,99c:56%,109c:58%");
+    }
+    
+    #[test]
+    fn check_safety() {
+        let config_str = "30c:1%,49c:2%,59c:3%,69c:4%,79c:31%,89c:49%,99c:56%,109c:58%";
+        let curve = Curve::from_config_str(config_str).unwrap();
+        assert_eq!(curve.check_safety(Fan::Cpu), Ok(()));
+        
+        let config_str = "41c:1%,49c:2%,59c:3%,69c:4%,79c:31%,89c:49%,99c:56%,109c:58%";
+        let curve = Curve::from_config_str(config_str).unwrap();
+        assert_eq!(curve.check_safety(Fan::Cpu), Err(UnsafeCurveError::TempOutOfRange(0)));
+        
+        let config_str = "30c:1%,49c:2%,59c:3%,69c:4%,79c:30%,89c:49%,99c:56%,109c:58%";
+        let curve = Curve::from_config_str(config_str).unwrap();
+        assert_eq!(curve.check_safety(Fan::Cpu), Err(UnsafeCurveError::SpeedTooLow(4)));
     }
 }
