@@ -4,4 +4,4 @@
 
 Provides a library and cli for setting fan curves on some asus laptops.
 
-Thanks to [atrofac](https://github.com/cronosun/atrofac) for figuring out the format of the fan curve.
+Thanks to [atrofac](https://github.com/cronosun/atrofac) for figuring out the format of the fan curve and various other information.

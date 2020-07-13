@@ -9,7 +9,7 @@
 //! #     Fan,
 //! #     CurveError,
 //! # };
-//! # fn foo() -> Result<(), CurveError> {
+//! # fn main() -> Result<(), CurveError> {
 //! let mut curve = Curve::new();
 //! 
 //! curve.set_point(0,  30,   0);
@@ -56,6 +56,35 @@
 //! ```text
 //! 30c:0%,40c:5%,50c:10%,60c:20%,70c:35%,80c:55%,90c:65%,100c:65%`
 //! ```
+//!
+//! # Serde
+//!
+//! `Curve` implements Serialize and Deserialize to and from the config string format.
+//!
+//! #### Example
+//!
+//! In `cargo.toml`
+//! ```toml
+//! rog_fan_curve = { version = "*", features = ["serde"] }
+//! ```
+//!
+//! ```
+//! # use rog_fan_curve::Curve;
+//! # fn main() -> serde_json::Result<()> {
+//! # #[cfg(feature = "serde")] {
+//! let json = "\"30c:0%,40c:5%,50c:10%,60c:20%,70c:35%,80c:55%,90c:65%,100c:75%\"";
+//!
+//! let curve: Curve = serde_json::from_str(json)?;
+//!
+//! let new_json = serde_json::to_string(&curve)?;
+//! assert_eq!(json, new_json);
+//! # }
+//! # Ok(())
+//! # }
+//! ```
+
+#[cfg(feature = "serde")]
+mod serde_impl;
 
 use std::io::prelude::*;
 use std::fs::OpenOptions;
@@ -148,7 +177,7 @@ impl Curve {
     /// Create a config string for a `Curve`
     ///
     /// See the crate level documentation for information about the config string format.
-    pub fn as_config_str(&self) -> String {
+    pub fn as_config_string(&self) -> String {
         let mut out = String::new();
         
         for i in 0..8 {
@@ -375,7 +404,7 @@ mod tests {
         let config_str = "30c:1%,49c:2%,59c:3%,69c:4%,79c:31%,89c:49%,99c:56%,109c:58%";
         let curve = Curve::from_config_str(config_str).unwrap();
         
-        let out_config_str = curve.as_config_str();
+        let out_config_str = curve.as_config_string();
         
         assert_eq!(&out_config_str, "30c:1%,49c:2%,59c:3%,69c:4%,79c:31%,89c:49%,99c:56%,109c:58%");
     }
