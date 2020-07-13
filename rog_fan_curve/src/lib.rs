@@ -63,7 +63,7 @@
 //!
 //! #### Example
 //!
-//! In `cargo.toml`
+//! In `Cargo.toml`
 //! ```toml
 //! rog_fan_curve = { version = "*", features = ["serde"] }
 //! ```
