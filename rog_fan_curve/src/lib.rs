@@ -87,13 +87,41 @@
 mod serde_impl;
 
 use std::io::prelude::*;
+use std::fmt;
 use std::fs::OpenOptions;
 
 #[derive(Debug)]
 pub enum CurveError {
     Acpi(String),
-    InvalidFan,
+    InvalidFan(Fan),
     Io(std::io::Error),
+}
+
+impl fmt::Display for CurveError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Acpi(acpi_response) => {
+                write!(f, "acpi_call returned an error `{}`", acpi_response)
+            }
+            Self::InvalidFan(fan) => {
+                write!(f, "Fan `{:?}` not supported on this board.", fan)
+            }
+            Self::Io(err) => {
+                write!(f, "failed to write to file {}", err)
+            }
+        }
+    }
+}
+
+impl std::error::Error for CurveError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Io(err) => {
+                Some(err)
+            }
+            _ => None
+        }
+    }
 }
 
 impl From<std::io::Error> for CurveError {
@@ -240,7 +268,7 @@ impl Curve {
     ///
     /// * `n` - The point on the fan curve to change, must be between 0 and 7 inclusive
     /// * `temp` - Degrees celcius
-    /// * `speed` -> Fan speed (see crate level documentation)
+    /// * `speed` - Fan speed (see crate level documentation)
     ///
     /// # Panics
     ///
@@ -255,7 +283,7 @@ impl Curve {
     /// Applies the fan curve via acpi_call
     pub fn apply(&self, board: Board, fan: Fan) -> Result<(), CurveError> {
         assert_eq!(board, Board::Ga401);
-        let fan_addr = fan.address().ok_or(CurveError::InvalidFan)?;
+        let fan_addr = fan.address().ok_or(CurveError::InvalidFan(fan))?;
         let command = make_command(self, fan_addr);
         // dbg!(&command);
         acpi_call(&command)
