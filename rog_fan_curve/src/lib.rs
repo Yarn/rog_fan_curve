@@ -224,6 +224,7 @@ impl Curve {
     /// The limitations should match the ones used by [atrofac](https://github.com/cronosun/atrofac/blob/master/ADVANCED.md#limits)
     /// and armoury crate.
     pub fn check_safety(&self, fan: Fan) -> Result<(), UnsafeCurveError> {
+        let mut last_speed = 0;
         for i in 0..8 {
             let temp = self.curve[i];
             let speed = self.curve[i+8];
@@ -254,9 +255,11 @@ impl Curve {
                 return Err(UnsafeCurveError::TempOutOfRange(i))
             }
             
-            if speed < min_speed {
+            if speed < min_speed || speed < last_speed {
                 return Err(UnsafeCurveError::SpeedTooLow(i))
             }
+            
+            last_speed = speed;
         }
         
         Ok(())
