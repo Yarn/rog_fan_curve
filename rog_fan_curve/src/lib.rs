@@ -136,7 +136,7 @@ pub enum UnsafeCurveError {
     SpeedTooLow(u8),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Curve {
     curve: [u8; 16],
 }
