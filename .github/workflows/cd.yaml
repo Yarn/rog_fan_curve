@@ -1,0 +1,35 @@
+name: Continuous Deployment
+
+on:
+  push
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    
+    steps:
+      # - name: Installing Rust toolchain
+      #   uses: actions-rs/toolchain@v1
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+      
+      - name: Extract branch name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+      - name: Package
+        shell: bash
+        run: |
+          cd target/release
+          tar czvf rog_fan_curve_cli_${{ steps.extract_branch.outputs.branch }}.tar.gz rog_fan_curve_cli
+      - name: Release
+        uses: eine/tip@master
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: target/release/rog_fan_curve_cli_${{ steps.extract_branch.outputs.branch }}.tar.gz
