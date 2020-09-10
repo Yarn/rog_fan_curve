@@ -308,6 +308,7 @@ impl Board {
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
             "GA401IV" => Some(Board::Ga401),
+            "GA401IU" => Some(Board::Ga401),
             _ => None,
         }
     }
