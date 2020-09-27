@@ -309,6 +309,7 @@ impl Board {
         match name {
             "GA401IV" => Some(Board::Ga401),
             "GA401IU" => Some(Board::Ga401),
+            "GA401II" => Some(Board::Ga401),
             _ => None,
         }
     }
