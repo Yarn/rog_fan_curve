@@ -1,6 +1,6 @@
 [package]
 name = "rog_fan_curve"
-version = "0.1.7"
+version = "0.1.8"
 authors = ["ryan <yarnnd@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Yarn/rog_fan_curve"
