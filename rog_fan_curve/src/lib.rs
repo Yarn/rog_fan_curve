@@ -312,6 +312,7 @@ impl Board {
             "GA401II" => Some(Board::Ga401),
             "GA401IVC" => Some(Board::Ga401),
             "GA401IH" => Some(Board::Ga401),
+            "GA401QM" => Some(Board::Ga401),
             _ => None,
         }
     }
