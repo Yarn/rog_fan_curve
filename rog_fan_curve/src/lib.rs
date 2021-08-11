@@ -305,7 +305,18 @@ impl Board {
         Self::from_name(name.trim())
     }
     
+    /// Identifies the board using prefixes that have been reported as working
     pub fn from_name(name: &str) -> Option<Self> {
+        for prefix in &["GA401I", "GA401Q"] {
+            if name.starts_with(prefix) {
+                return Some(Board::Ga401)
+            }
+        }
+        None
+    }
+    
+    /// Identifies the board using exact names that have been reported as working
+    pub fn from_name_strict(name: &str) -> Option<Self> {
         match name {
             "GA401IV" => Some(Board::Ga401),
             "GA401IU" => Some(Board::Ga401),
