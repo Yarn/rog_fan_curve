@@ -285,7 +285,7 @@ impl Curve {
     
     /// Applies the fan curve via acpi_call
     pub fn apply(&self, board: Board, fan: Fan) -> Result<(), CurveError> {
-        //assert_eq!(board, Board::Ga401); //Disabled as this will throw on ga502iu, despite it working fine otherwise
+        assert_eq!(board, Board::Ga401);
         let fan_addr = fan.address().ok_or(CurveError::InvalidFan(fan))?;
         let command = make_command(self, fan_addr);
         // dbg!(&command);
@@ -295,7 +295,7 @@ impl Curve {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Board {
-    Ga401,Ga502,
+    Ga401,
 }
 
 impl Board {
@@ -307,15 +307,9 @@ impl Board {
     
     /// Identifies the board using prefixes that have been reported as working
     pub fn from_name(name: &str) -> Option<Self> {
-        for prefix in &["GA401I", "GA401Q"] {
+        for prefix in &["GA401I", "GA401Q", "GA502IU"] {
             if name.starts_with(prefix) {
                 return Some(Board::Ga401)
-            }
-        }
-        //explicit check as it is unknown if the other ga502 boards work.
-        for prefix in &["GA502IU"] {
-            if name.starts_with(prefix) {
-                return Some(Board::Ga502)
             }
         }
         None
@@ -330,7 +324,7 @@ impl Board {
             "GA401IVC" => Some(Board::Ga401),
             "GA401IH" => Some(Board::Ga401),
             "GA401QM" => Some(Board::Ga401),
-            "GA502IU" => Some(Board::Ga502),
+            "GA502IU" => Some(Board::Ga401),
             _ => None,
         }
     }
